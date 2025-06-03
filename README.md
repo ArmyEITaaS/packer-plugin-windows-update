@@ -4,7 +4,7 @@
 
 This is a Packer plugin for installing Windows updates (akin to [rgl/vagrant-windows-update](https://github.com/rgl/vagrant-windows-update)).
 
-**NB** This was only tested with Packer 1.12.0 and the images at [rgl/windows-vagrant](https://github.com/rgl/windows-vagrant), so YMMV
+**NB** This was only tested with Packer 1.12.0 and the images at [rgl/windows-vagrant](https://github.com/rgl/windows-vagrant), so YMMV.
 
 # Usage
 
@@ -44,12 +44,12 @@ You can select which Windows Updates are installed by defining the search criter
 
 Normally you would use one of the following settings:
 
-| Name          | `search_criteria`                           | `filters`       |
-|---------------|---------------------------------------------|-----------------|
-| Important     | `AutoSelectOnWebSites=1 and IsInstalled=0`  | `$true`         |
-| Recommended   | `BrowseOnly=0 and IsInstalled=0`            | `$true`         |
-| All           | `IsInstalled=0`                             | `$true`         |
-| Optional Only | `AutoSelectOnWebSites=0 and IsInstalled=0`  | `$_.BrowseOnly` |
+| Name          | `search_criteria`                          | `filters`       |
+| ------------- | ------------------------------------------ | --------------- |
+| Important     | `AutoSelectOnWebSites=1 and IsInstalled=0` | `$true`         |
+| Recommended   | `BrowseOnly=0 and IsInstalled=0`           | `$true`         |
+| All           | `IsInstalled=0`                            | `$true`         |
+| Optional Only | `AutoSelectOnWebSites=0 and IsInstalled=0` | `$_.BrowseOnly` |
 
 **NB** `Recommended` is the default setting.
 
