@@ -4,7 +4,7 @@
 
 This is a Packer plugin for installing Windows updates (akin to [rgl/vagrant-windows-update](https://github.com/rgl/vagrant-windows-update)).
 
-**NB** This was only tested with Packer 1.8.6 and the images at [rgl/windows-vagrant](https://github.com/rgl/windows-vagrant), so YMMV.
+**NB** This was only tested with Packer 1.12.0 and the images at [rgl/windows-vagrant](https://github.com/rgl/windows-vagrant), so YMMV.
 
 # Usage
 
@@ -14,8 +14,8 @@ Configure your packer template to require a [release version of the plugin](http
 packer {
   required_plugins {
     windows-update = {
-      version = "0.14.3"
-      source = "github.com/rgl/windows-update"
+      version = "0.16.10"
+      source  = "github.com/rgl/windows-update"
     }
   }
 }
@@ -92,26 +92,24 @@ Inside an expression, the Windows Update [IUpdate interface](https://msdn.micros
 
 # Development
 
+Install the dependencies:
+
+* [Docker](https://docs.docker.com/engine/install/).
+* [Visual Studio Code](https://code.visualstudio.com).
+* [Dev Container plugin](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+* [`windows-2022-amd64` vagrant box](https://github.com/rgl/windows-vagrant).
+
+Open this directory with the Dev Container plugin.
+
+Open `bash` inside the Visual Studio Code Terminal.
+
 Build:
 
 ```bash
 make
 ```
 
-Install the plugin into `$HOME/.packer.d/plugins` with:
-
-```bash
-make install
-```
-
-**And comment the `required_plugin` block in your packer template file.**
-
-If you are having problems running `packer` set the `PACKER_LOG=1` environment
-variable to see more information.
-
-## Test (QEMU)
-
-You can test the plugin with a previously installed [rgl/windows-vagrant](https://github.com/rgl/windows-vagrant) image with:
+Test with QEMU:
 
 ```bash
 make test

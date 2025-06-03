@@ -138,6 +138,29 @@ function ExitWhenRebootRequired($rebootRequired = $false) {
     }
 }
 
+# try to repair the windows update settings to work in non-preview mode.
+# see https://github.com/rgl/packer-plugin-windows-update/issues/144
+# see https://learn.microsoft.com/en-sg/answers/questions/1791668/powershell-command-outputting-system-comobject-on
+function Repair-WindowsUpdate {
+    $settingsPath = 'C:\ProgramData\Microsoft\Windows\OneSettings\UusSettings.json'
+    if (!(Test-Path $settingsPath)) {
+        throw 'the windows update api is in an invalid state. see https://github.com/rgl/packer-plugin-windows-update/issues/144.'
+    }
+    $version = (New-Object -ComObject Microsoft.Update.AgentInfo).GetInfo('ProductVersionString')
+    $settings = Get-Content -Raw $settingsPath | ConvertFrom-Json
+    if ($settings.settings.EXCLUSIONS -notcontains $version) {
+        $settings.settings.EXCLUSIONS += $version
+        Write-Output 'Repairing the windows update settings to work in non-preview mode...'
+        Copy-Item $settingsPath "$settingsPath.backup.json" -Force
+        [System.IO.File]::WriteAllText(
+            $settingsPath,
+            ($settings | ConvertTo-Json -Compress -Depth 100),
+            (New-Object System.Text.UTF8Encoding $false))
+    }
+    Write-Output 'Restarting the machine to retry a new windows update round...'
+    ExitWithCode 101
+}
+
 ExitWhenRebootRequired
 
 if ($OnlyCheckForRebootRequired) {
@@ -187,9 +210,30 @@ while ($true) {
 $rebootRequired = $false
 for ($i = 0; $i -lt $searchResult.Updates.Count; ++$i) {
     $update = $searchResult.Updates.Item($i)
-    $updateDate = $update.LastDeploymentChangeTime.ToString('yyyy-MM-dd')
-    $updateSize = ($update.MaxDownloadSize/1024/1024).ToString('0.##')
+
+    # when the windows update api returns an invalid update object, repair
+    # windows update and signal a reboot to try again.
+    # see https://github.com/rgl/packer-plugin-windows-update/issues/144
+    # see The June 2024 preview update might impact applications using Windows Update APIs
+    #     https://learn.microsoft.com/en-us/windows/release-health/status-windows-11-23h2#3351msgdesc
+    $expectedProperties = @(
+        'Title'
+        'MaxDownloadSize'
+        'LastDeploymentChangeTime'
+        'InstallationBehavior'
+        'AcceptEula'
+    )
+    $properties = $update `
+        | Get-Member $expectedProperties `
+        | Select-Object -ExpandProperty Name
+    if (!$properties -or (Compare-Object $expectedProperties $properties)) {
+        Repair-WindowsUpdate
+    }
+
     $updateTitle = $update.Title
+    $updateMaxDownloadSize = $update.MaxDownloadSize
+    $updateDate = $update.LastDeploymentChangeTime.ToString('yyyy-MM-dd')
+    $updateSize = ($updateMaxDownloadSize/1024/1024).ToString('0.##')
     $updateSummary = "Windows update ($updateDate; $updateSize MB): $updateTitle"
 
     if (!(Test-IncludeUpdate $updateFilters $update)) {
@@ -201,11 +245,16 @@ for ($i = 0; $i -lt $searchResult.Updates.Count; ++$i) {
         Write-Output "Warning The update '$updateTitle' has the CanRequestUserInput flag set (if the install hangs, you might need to exclude it with the filter 'exclude:`$_.InstallationBehavior.CanRequestUserInput' or 'exclude:`$_.Title -like '*$updateTitle*'')"
     }
 
+    if (($updatesToInstall | Select-Object -ExpandProperty Title) -contains $updateTitle) {
+        Write-Output "Warning, Skipping queueing the duplicated titled update '$updateTitle'."
+        continue
+    }
+
     Write-Output "Found $updateSummary"
 
     $update.AcceptEula() | Out-Null
 
-    $updatesToDownloadSize += $update.MaxDownloadSize
+    $updatesToDownloadSize += $updateMaxDownloadSize
     $updatesToDownload.Add($update) | Out-Null
 
     $updatesToInstall.Add($update) | Out-Null
